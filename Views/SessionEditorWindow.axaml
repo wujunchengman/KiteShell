@@ -1,0 +1,113 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="KiteShell.Views.SessionEditorWindow"
+        Title="会话设置"
+        Width="540"
+        Height="700"
+        MinWidth="480"
+        MinHeight="520"
+        CanResize="True"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppBgBrush}">
+    <Window.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+            <Setter Property="Margin" Value="1,0,0,4" />
+        </Style>
+        <Style Selector="StackPanel.field">
+            <Setter Property="Spacing" Value="0" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Margin="24,22,24,4" Spacing="4">
+            <TextBlock x:Name="DialogTitle" Text="新建 SSH 会话" FontSize="19" FontWeight="SemiBold" />
+            <TextBlock Text="配置连接信息，保存后可从左侧会话树快速打开" Classes="muted" FontSize="11.5" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="24,14,24,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="12">
+                <StackPanel Classes="field">
+                    <TextBlock Classes="label" Text="会话名称" />
+                    <TextBox x:Name="NameBox" PlaceholderText="例如：生产 Web 服务器" />
+                </StackPanel>
+
+                <StackPanel Classes="field">
+                    <TextBlock Classes="label" Text="分组（使用 / 分隔，例如：生产环境/Web）" />
+                    <TextBox x:Name="GroupBox" PlaceholderText="留空表示根目录" />
+                </StackPanel>
+
+                <Grid ColumnDefinitions="*,12,118">
+                    <StackPanel Classes="field">
+                        <TextBlock Classes="label" Text="主机地址" />
+                        <TextBox x:Name="HostBox" PlaceholderText="192.168.1.10 或 example.com" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Classes="field">
+                        <TextBlock Classes="label" Text="端口" />
+                        <TextBox x:Name="PortBox" Text="22" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Classes="field">
+                    <TextBlock Classes="label" Text="用户名" />
+                    <TextBox x:Name="UserBox" PlaceholderText="root" />
+                </StackPanel>
+
+                <StackPanel Classes="field">
+                    <TextBlock Classes="label" Text="认证方式" />
+                    <ComboBox x:Name="AuthCombo" SelectedIndex="0" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="密码认证" />
+                        <ComboBoxItem Content="私钥认证" />
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel x:Name="PasswordPanel" Classes="field" Spacing="6">
+                    <TextBlock Classes="label" Text="密码" />
+                    <TextBox x:Name="PasswordBox" PasswordChar="●" PlaceholderText="连接时询问" />
+                    <CheckBox x:Name="SavePasswordCheck" Content="保存密码（使用本机密钥加密）" />
+                </StackPanel>
+
+                <StackPanel x:Name="KeyPanel" Classes="field" Spacing="6" IsVisible="False">
+                    <TextBlock Classes="label" Text="私钥文件" />
+                    <Grid ColumnDefinitions="*,8,Auto">
+                        <TextBox x:Name="KeyBox" PlaceholderText="~/.ssh/id_ed25519" />
+                        <Button Grid.Column="2" Content="浏览..." Click="OnBrowseKeyClick" />
+                    </Grid>
+                    <TextBlock Classes="label" Text="私钥口令（未加密可留空）" />
+                    <TextBox x:Name="PassphraseBox" PasswordChar="●" PlaceholderText="连接时询问" />
+                    <CheckBox x:Name="SavePassphraseCheck" Content="保存私钥口令（使用本机密钥加密）" />
+                </StackPanel>
+
+                <StackPanel Classes="field">
+                    <TextBlock Classes="label" Text="登录后执行（可选）" />
+                    <TextBox x:Name="StartupBox" PlaceholderText="例如：cd /var/www &amp;&amp; bash" />
+                </StackPanel>
+
+                <StackPanel Classes="field">
+                    <TextBlock Classes="label" Text="标签颜色" />
+                    <ComboBox x:Name="AccentCombo" HorizontalAlignment="Stretch" />
+                </StackPanel>
+
+                <TextBlock x:Name="ErrorText"
+                           Foreground="{DynamicResource DangerBrush}"
+                           FontSize="11.5"
+                           TextWrapping="Wrap"
+                           IsVisible="False"
+                           Margin="0,2,0,8" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Background="{DynamicResource HeaderBrush}"
+                Padding="24,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="取消" MinWidth="82" Click="OnCancelClick" />
+                <Button Classes="accent" Content="保存" MinWidth="82" Click="OnSaveClick" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

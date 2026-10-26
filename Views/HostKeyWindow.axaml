@@ -1,0 +1,60 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="KiteShell.Views.HostKeyWindow"
+        Title="确认主机密钥"
+        Width="560"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource PanelBrush}">
+    <StackPanel Margin="24" Spacing="14">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <Border Width="40" Height="40" CornerRadius="10" Background="#2A2118">
+                <PathIcon Data="{StaticResource IconKey}" Width="20" Height="20" Foreground="#F0A04B" />
+            </Border>
+            <StackPanel Spacing="2">
+                <TextBlock x:Name="HeaderText" FontSize="17" FontWeight="SemiBold" Text="未知主机密钥" />
+                <TextBlock Text="请确认你正在连接的服务器身份" Classes="muted" FontSize="11.5" />
+            </StackPanel>
+        </StackPanel>
+
+        <Border x:Name="WarningBox" Background="#35191C" CornerRadius="6" Padding="12" IsVisible="False">
+            <TextBlock x:Name="WarningText"
+                       Foreground="#FF9B9B"
+                       FontSize="11.5"
+                       TextWrapping="Wrap" />
+        </Border>
+
+        <Border Classes="card" Padding="16">
+            <Grid ColumnDefinitions="88,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                <TextBlock Text="主机" Classes="muted" FontSize="12" />
+                <TextBlock x:Name="HostText" Grid.Column="1" FontSize="12" Classes="mono" />
+
+                <TextBlock Grid.Row="1" Text="密钥类型" Classes="muted" FontSize="12" />
+                <TextBlock x:Name="KeyTypeText" Grid.Row="1" Grid.Column="1" FontSize="12" Classes="mono" />
+
+                <TextBlock Grid.Row="2" Text="指纹" Classes="muted" FontSize="12" />
+                <TextBox x:Name="FingerprintBox"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         IsReadOnly="True"
+                         FontFamily="JetBrains Mono, Cascadia Mono, Consolas, monospace"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         MinHeight="32" />
+            </Grid>
+        </Border>
+
+        <TextBlock Text="请与服务器管理员提供的指纹核对。确认无误后，该指纹将被记录，后续连接会进行比对。"
+                   Classes="muted"
+                   FontSize="11"
+                   TextWrapping="Wrap" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="取消连接" Click="OnRejectClick" />
+            <Button Content="仅本次信任" Click="OnTrustOnceClick" />
+            <Button Classes="accent" Content="信任并保存" Click="OnTrustSaveClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

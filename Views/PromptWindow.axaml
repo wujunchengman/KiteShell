@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="KiteShell.Views.PromptWindow"
+        Title="KiteShell"
+        Width="460"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource PanelBrush}"
+        KeyDown="OnWindowKeyDown">
+    <StackPanel Margin="24" Spacing="14">
+        <StackPanel Spacing="4">
+            <TextBlock x:Name="HeaderText" FontSize="17" FontWeight="SemiBold" />
+            <TextBlock x:Name="MessageText" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <TextBox x:Name="InputBox" MinHeight="34" FontSize="12.5" />
+
+        <CheckBox x:Name="RememberCheck" Content="记住密码（使用本机密钥加密保存）" IsVisible="False" />
+
+        <TextBlock x:Name="ErrorText"
+                   Foreground="{DynamicResource DangerBrush}"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   IsVisible="False" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button x:Name="CancelButton" Content="取消" MinWidth="78" Click="OnCancelClick" />
+            <Button x:Name="OkButton" Classes="accent" Content="确定" MinWidth="78" Click="OnOkClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>
