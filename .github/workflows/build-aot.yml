@@ -1,0 +1,90 @@
+name: Build AOT
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    name: AOT ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            rid: linux-x64
+            archive: KiteShell-linux-x64.tar.gz
+          - os: windows-latest
+            rid: win-x64
+            archive: KiteShell-win-x64.zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install AOT toolchain
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
+
+      - name: Restore
+        run: dotnet restore KiteShell.csproj -r ${{ matrix.rid }}
+
+      - name: Publish (NativeAOT)
+        run: dotnet publish KiteShell.csproj -c Release -r ${{ matrix.rid }} --self-contained -o publish/${{ matrix.rid }}
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cd publish/${{ matrix.rid }}
+          rm -f *.dbg
+          tar -czf "$GITHUB_WORKSPACE/${{ matrix.archive }}" .
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path "publish/${{ matrix.rid }}" -Filter *.pdb -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
+          Compress-Archive -Path "publish/${{ matrix.rid }}/*" -DestinationPath "${{ matrix.archive }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KiteShell-${{ matrix.rid }}
+          path: ${{ matrix.archive }}
+          if-no-files-found: error
+          compression-level: 0
+
+  release:
+    name: Attach to release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
