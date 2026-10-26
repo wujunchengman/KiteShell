@@ -57,6 +57,8 @@ public sealed class TerminalControl : Control
     private bool _pointerOverScrollbar;
     private TerminalImeClient? _imeClient;
     private string? _preeditText;
+    private Rect _imeCursorRectangle;
+    private bool _hasImeCursorRectangle;
 
     public TerminalControl()
     {
@@ -68,7 +70,11 @@ public sealed class TerminalControl : Control
         AddHandler(TextInputMethodClientRequestedEvent, OnInputMethodClientRequested);
 
         _parser = new AnsiParser(_buffer);
-        _buffer.Changed += () => InvalidateVisual();
+        _buffer.Changed += () =>
+        {
+            InvalidateVisual();
+            SyncImeCursorRectangle();
+        };
         _buffer.TitleChanged += title => TitleChanged?.Invoke(title);
         _buffer.ResponseRequested += response => UserInput?.Invoke(response);
         _buffer.BellRequested += () => Bell?.Invoke();
@@ -162,6 +168,7 @@ public sealed class TerminalControl : Control
     {
         _buffer.ScrollOffset = 0;
         InvalidateVisual();
+        SyncImeCursorRectangle();
     }
 
     public void SendTextToSession(string text, bool appendEnter = true)
@@ -171,6 +178,7 @@ public sealed class TerminalControl : Control
         UserInput?.Invoke(appendEnter ? text + "\r" : text);
         Focus();
         InvalidateVisual();
+        SyncImeCursorRectangle();
     }
 
     public Task CopySelectionAsync() => CopySelectionCoreAsync();
@@ -224,6 +232,7 @@ public sealed class TerminalControl : Control
             Resized?.Invoke(columns, rows);
         }
 
+        SyncImeCursorRectangle();
         return finalSize;
     }
 
@@ -514,6 +523,7 @@ public sealed class TerminalControl : Control
                 0,
                 _buffer.MaxScrollOffset);
             InvalidateVisual();
+            SyncImeCursorRectangle();
         }
 
         e.Handled = true;
@@ -636,6 +646,7 @@ public sealed class TerminalControl : Control
         _cursorPhase = true;
         UserInput?.Invoke(text);
         InvalidateVisual();
+        SyncImeCursorRectangle();
     }
 
     private void ScrollByPage(int direction)
@@ -645,6 +656,7 @@ public sealed class TerminalControl : Control
             0,
             _buffer.MaxScrollOffset);
         InvalidateVisual();
+        SyncImeCursorRectangle();
     }
 
     private async Task CopySelectionCoreAsync()
@@ -877,6 +889,7 @@ public sealed class TerminalControl : Control
             var ratio = Math.Clamp((position.Y - _trackTop) / Math.Max(1, _trackHeight), 0, 1);
             _buffer.ScrollOffset = (int)Math.Round((1 - ratio) * _buffer.MaxScrollOffset);
             InvalidateVisual();
+            SyncImeCursorRectangle();
             _scrollDragOffset = _thumbHeight / 2;
         }
         else
@@ -894,6 +907,7 @@ public sealed class TerminalControl : Control
         var ratio = maxTop <= 0 ? 1 : top / maxTop;
         _buffer.ScrollOffset = (int)Math.Round((1 - ratio) * _buffer.MaxScrollOffset);
         InvalidateVisual();
+        SyncImeCursorRectangle();
     }
 
     private void BuildContextMenu()
@@ -926,6 +940,10 @@ public sealed class TerminalControl : Control
     {
         _imeClient ??= new TerminalImeClient(this);
         e.Client = _imeClient;
+
+        // 平台只在 CursorRectangleChanged 时更新候选框位置，客户端注册后主动上报一次。
+        _hasImeCursorRectangle = false;
+        Dispatcher.UIThread.Post(SyncImeCursorRectangle);
     }
 
     private void SetPreeditText(string? text)
@@ -952,6 +970,27 @@ public sealed class TerminalControl : Control
             PadY + (row * _cellHeight),
             _cellWidth,
             _cellHeight);
+    }
+
+    /// <summary>
+    /// 光标位置变化时通知输入法更新候选框位置；光标不可见（正在回看历史）时保持原位。
+    /// </summary>
+    private void SyncImeCursorRectangle()
+    {
+        var rectangle = GetCursorRectangle();
+        if (rectangle.Width <= 0 || rectangle.Height <= 0)
+        {
+            return;
+        }
+
+        if (_hasImeCursorRectangle && rectangle == _imeCursorRectangle)
+        {
+            return;
+        }
+
+        _imeCursorRectangle = rectangle;
+        _hasImeCursorRectangle = true;
+        _imeClient?.NotifyCursorRectangleChanged();
     }
 
     private void DrawPreedit(DrawingContext context)
@@ -1107,6 +1146,8 @@ public sealed class TerminalControl : Control
 
         public override void SetPreeditText(string? preeditText, int? cursorPosition) =>
             _owner.SetPreeditText(preeditText);
+
+        public void NotifyCursorRectangleChanged() => RaiseCursorRectangleChanged();
 
         public override void ExecuteContextMenuAction(ContextMenuAction action)
         {
