@@ -318,7 +318,8 @@ public sealed class TerminalControl : Control
                 }
             }
 
-            // 文本按样式分组成 run 绘制。
+            // 文本按样式分组成 run 绘制：宽字符始终定位到自身网格，
+            // 避免回退字体的实际字形宽度与单元格宽度不一致时累积偏移。
             var column = 0;
             while (column < cellCount)
             {
@@ -328,9 +329,26 @@ public sealed class TerminalControl : Control
                     continue;
                 }
 
-                var start = column;
                 var flags = line[column].Flags & (CellFlags.Bold | CellFlags.Italic | CellFlags.Underline | CellFlags.Strike);
                 var foreground = EffectiveForeground(line[column], _cursorPhase);
+
+                if (IsWideCell(line, column, cellCount))
+                {
+                    DrawTextRun(
+                        context,
+                        char.ConvertFromUtf32(line[column].Codepoint),
+                        column,
+                        2,
+                        flags,
+                        foreground,
+                        y,
+                        centerInSpan: true);
+                    column += 2;
+                    continue;
+                }
+
+                var start = column;
+                var cellSpan = 0;
                 var builder = new StringBuilder();
 
                 while (column < cellCount)
@@ -352,46 +370,30 @@ public sealed class TerminalControl : Control
                         break;
                     }
 
-                    if (cell.Codepoint == 0)
+                    if (IsWideCell(line, column, cellCount))
                     {
-                        builder.Append(' ');
-                    }
-                    else
-                    {
-                        builder.Append(char.ConvertFromUtf32(cell.Codepoint));
+                        break;
                     }
 
+                    builder.Append(cell.Codepoint == 0 ? ' ' : char.ConvertFromUtf32(cell.Codepoint));
+                    cellSpan++;
                     column++;
                 }
 
-                if (builder.Length == 0 || (flags & CellFlags.Hidden) != 0)
+                if (builder.Length == 0)
                 {
                     continue;
                 }
 
-                var typeface = GetTypeface(flags);
-                var text = new FormattedText(
+                DrawTextRun(
+                    context,
                     builder.ToString(),
-                    CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight,
-                    typeface,
-                    _fontSize,
-                    GetBrush(foreground));
-
-                if ((flags & CellFlags.Underline) != 0)
-                {
-                    text.SetTextDecorations(TextDecorations.Underline);
-                }
-                else if ((flags & CellFlags.Strike) != 0)
-                {
-                    text.SetTextDecorations(TextDecorations.Strikethrough);
-                }
-
-                context.DrawText(
-                    text,
-                    new Point(
-                        PadX + (start * _cellWidth),
-                        y + _baseline - text.Baseline));
+                    start,
+                    cellSpan,
+                    flags,
+                    foreground,
+                    y,
+                    centerInSpan: false);
             }
         }
 
@@ -1051,7 +1053,8 @@ public sealed class TerminalControl : Control
             _fontSize,
             Brushes.White);
 
-        _cellWidth = Math.Max(4, Math.Ceiling(widthText.WidthIncludingTrailingWhitespace));
+        // 使用字体的真实推进宽度，保证窄字符 run 的排版宽度与 N 个单元格严格一致。
+        _cellWidth = Math.Max(4, widthText.WidthIncludingTrailingWhitespace);
         _cellHeight = Math.Max(10, Math.Ceiling(heightText.Height) + 1);
         _baseline = heightText.Baseline;
         _metricsDirty = false;
@@ -1072,6 +1075,95 @@ public sealed class TerminalControl : Control
         }
 
         return italic ? _italic : _regular;
+    }
+
+    private void DrawTextRun(
+        DrawingContext context,
+        string text,
+        int startColumn,
+        int cellSpan,
+        CellFlags flags,
+        uint foreground,
+        double y,
+        bool centerInSpan)
+    {
+        var typeface = GetTypeface(flags);
+        var formatted = new FormattedText(
+            text,
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            typeface,
+            _fontSize,
+            GetBrush(foreground));
+        ApplyTextDecorations(formatted, flags);
+
+        var left = PadX + (startColumn * _cellWidth);
+
+        if (centerInSpan)
+        {
+            // 宽字符在所属的两格内居中，两侧留白而不是挤压后续字符。
+            var offset = Math.Max(0, ((cellSpan * _cellWidth) - formatted.Width) / 2);
+            context.DrawText(formatted, new Point(left + offset, y + _baseline - formatted.Baseline));
+            return;
+        }
+
+        // 字体回退时整段实际宽度可能与网格不符，逐字符定位以免后续内容累积偏移。
+        if (cellSpan > 1 && Math.Abs(formatted.WidthIncludingTrailingWhitespace - (cellSpan * _cellWidth)) > 0.5)
+        {
+            DrawTextByCell(context, text, startColumn, flags, foreground, y);
+            return;
+        }
+
+        context.DrawText(formatted, new Point(left, y + _baseline - formatted.Baseline));
+    }
+
+    private void DrawTextByCell(
+        DrawingContext context,
+        string text,
+        int startColumn,
+        CellFlags flags,
+        uint foreground,
+        double y)
+    {
+        var typeface = GetTypeface(flags);
+        var column = startColumn;
+        for (var i = 0; i < text.Length;)
+        {
+            var codepoint = char.ConvertToUtf32(text, i);
+            var glyphText = char.ConvertFromUtf32(codepoint);
+            i += glyphText.Length;
+
+            var formatted = new FormattedText(
+                glyphText,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                typeface,
+                _fontSize,
+                GetBrush(foreground));
+            ApplyTextDecorations(formatted, flags);
+
+            context.DrawText(
+                formatted,
+                new Point(PadX + (column * _cellWidth), y + _baseline - formatted.Baseline));
+            column += Math.Max(1, UnicodeWidth.GetWidth(codepoint));
+        }
+    }
+
+    private static void ApplyTextDecorations(FormattedText text, CellFlags flags)
+    {
+        if ((flags & CellFlags.Underline) != 0)
+        {
+            text.SetTextDecorations(TextDecorations.Underline);
+        }
+        else if ((flags & CellFlags.Strike) != 0)
+        {
+            text.SetTextDecorations(TextDecorations.Strikethrough);
+        }
+    }
+
+    private static bool IsWideCell(TerminalCell[] line, int index, int cellCount)
+    {
+        return index + 1 < cellCount && line[index + 1].Continuation;
     }
 
     private static uint EffectiveBackground(in TerminalCell cell)
