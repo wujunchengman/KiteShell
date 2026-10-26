@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:terminal="using:KiteShell.Terminal"
+             xmlns:models="using:KiteShell.Models"
              x:Class="KiteShell.Views.TerminalTabView">
     <Grid x:Name="RootGrid" ColumnDefinitions="*,0,0">
         <Grid Grid.Column="0" RowDefinitions="*,Auto,30">
@@ -121,7 +122,7 @@
                              SelectionMode="Multiple"
                              DoubleTapped="OnSftpListDoubleTapped">
                         <ListBox.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:RemoteEntry">
                                 <Grid ColumnDefinitions="*,80,118" Height="26" Margin="10,0,2,0">
                                     <Grid ColumnDefinitions="Auto,*">
                                         <Panel VerticalAlignment="Center">

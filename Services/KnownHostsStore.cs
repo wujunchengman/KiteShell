@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace KiteShell.Services;
 
@@ -26,15 +28,12 @@ public sealed class KnownHostEntry
 /// </summary>
 public sealed class KnownHostsStore
 {
+    private static readonly JsonTypeInfo<Dictionary<string, KnownHostEntry>> EntriesTypeInfo =
+        AppJson.TypeInfo<Dictionary<string, KnownHostEntry>>();
+
     private readonly string _path;
     private readonly object _gate = new();
     private readonly Dictionary<string, KnownHostEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
-    private readonly JsonSerializerOptions _options = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-    };
 
     public KnownHostsStore(string path)
     {
@@ -82,8 +81,8 @@ public sealed class KnownHostsStore
                 return;
             }
 
-            var entries = JsonSerializer.Deserialize<Dictionary<string, KnownHostEntry>>(
-                File.ReadAllText(_path), _options);
+            var entries = JsonSerializer.Deserialize(
+                File.ReadAllText(_path), EntriesTypeInfo);
             if (entries is null)
             {
                 return;
@@ -106,7 +105,7 @@ public sealed class KnownHostsStore
         {
             AppPaths.EnsureDataDirectory();
             var temp = _path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(_entries, _options));
+            File.WriteAllText(temp, JsonSerializer.Serialize(_entries, EntriesTypeInfo));
             File.Move(temp, _path, overwrite: true);
         }
         catch

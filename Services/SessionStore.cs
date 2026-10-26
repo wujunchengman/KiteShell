@@ -4,20 +4,17 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using KiteShell.Models;
 
 namespace KiteShell.Services;
 
 public sealed class SessionStore
 {
+    private static readonly JsonTypeInfo<SessionFile> SessionFileTypeInfo =
+        AppJson.TypeInfo<SessionFile>();
+
     private readonly string _path;
-    private readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
-    };
 
     public List<SessionNode> Roots { get; private set; } = new();
 
@@ -34,7 +31,7 @@ public sealed class SessionStore
             if (File.Exists(_path))
             {
                 var json = File.ReadAllText(_path);
-                var document = JsonSerializer.Deserialize<SessionFile>(json, _jsonOptions);
+                var document = JsonSerializer.Deserialize(json, SessionFileTypeInfo);
                 if (document?.Nodes is not null)
                 {
                     Roots = document.Nodes;
@@ -53,7 +50,7 @@ public sealed class SessionStore
     {
         AppPaths.EnsureDataDirectory();
         var document = new SessionFile { Version = 1, Nodes = Roots };
-        var json = JsonSerializer.Serialize(document, _jsonOptions);
+        var json = JsonSerializer.Serialize(document, SessionFileTypeInfo);
         var temp = _path + ".tmp";
         File.WriteAllText(temp, json);
         if (!OperatingSystem.IsWindows())
@@ -256,10 +253,11 @@ public sealed class SessionStore
         }
     }
 
-    private sealed class SessionFile
-    {
-        public int Version { get; set; }
+}
 
-        public List<SessionNode> Nodes { get; set; } = new();
-    }
+internal sealed class SessionFile
+{
+    public int Version { get; set; }
+
+    public List<SessionNode> Nodes { get; set; } = new();
 }

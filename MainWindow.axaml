@@ -2,6 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:KiteShell.ViewModels"
+        xmlns:models="using:KiteShell.Models"
         mc:Ignorable="d"
         x:Class="KiteShell.MainWindow"
         d:DesignWidth="1360"
@@ -133,7 +135,7 @@
                             </ContextMenu>
                         </TreeView.ContextMenu>
                         <TreeView.ItemTemplate>
-                            <TreeDataTemplate ItemsSource="{Binding Children}">
+                            <TreeDataTemplate x:DataType="vm:SessionNodeViewModel" ItemsSource="{Binding Children}">
                                 <Grid ColumnDefinitions="Auto,*,Auto" Height="30" ToolTip.Tip="{Binding Subtitle}">
                                     <Panel VerticalAlignment="Center">
                                         <PathIcon Data="{StaticResource IconFolder}"
@@ -193,7 +195,7 @@
                                      BorderThickness="0"
                                      DoubleTapped="OnSnippetDoubleTapped">
                                 <ListBox.ItemTemplate>
-                                    <DataTemplate>
+                                    <DataTemplate x:DataType="models:Snippet">
                                         <StackPanel Spacing="1" Margin="2,2">
                                             <TextBlock Text="{Binding Name}" FontSize="11.5" />
                                             <TextBlock Text="{Binding Command}"

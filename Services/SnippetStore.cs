@@ -2,19 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using KiteShell.Models;
 
 namespace KiteShell.Services;
 
 public sealed class SnippetStore
 {
+    private static readonly JsonTypeInfo<List<Snippet>> ItemsTypeInfo =
+        AppJson.TypeInfo<List<Snippet>>();
+
     private readonly string _path;
-    private readonly JsonSerializerOptions _options = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-    };
 
     public List<Snippet> Items { get; private set; } = new();
 
@@ -30,7 +29,7 @@ public sealed class SnippetStore
         {
             if (File.Exists(_path))
             {
-                Items = JsonSerializer.Deserialize<List<Snippet>>(File.ReadAllText(_path), _options)
+                Items = JsonSerializer.Deserialize(File.ReadAllText(_path), ItemsTypeInfo)
                         ?? new List<Snippet>();
                 loaded = true;
             }
@@ -49,7 +48,7 @@ public sealed class SnippetStore
     public void Save()
     {
         AppPaths.EnsureDataDirectory();
-        var json = JsonSerializer.Serialize(Items, _options);
+        var json = JsonSerializer.Serialize(Items, ItemsTypeInfo);
         var temp = _path + ".tmp";
         File.WriteAllText(temp, json);
         File.Move(temp, _path, overwrite: true);

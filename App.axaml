@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:KiteShell.ViewModels"
              x:Class="KiteShell.App"
              RequestedThemeVariant="Dark">
 
@@ -149,7 +150,7 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
-        <Style Selector="TreeViewItem">
+        <Style Selector="TreeViewItem" x:DataType="vm:SessionNodeViewModel">
             <Setter Property="MinHeight" Value="30" />
             <Setter Property="Padding" Value="2,0" />
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
