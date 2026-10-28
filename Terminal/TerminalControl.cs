@@ -356,6 +356,9 @@ public sealed class TerminalControl : Control
                     var cell = line[column];
                     if (cell.Continuation)
                     {
+                        // 孤立的宽字符右半格（如擦除/删除后残留）：按空格占位，避免后续字符整体左移。
+                        builder.Append(' ');
+                        cellSpan++;
                         column++;
                         continue;
                     }
@@ -375,7 +378,11 @@ public sealed class TerminalControl : Control
                         break;
                     }
 
-                    builder.Append(cell.Codepoint == 0 ? ' ' : char.ConvertFromUtf32(cell.Codepoint));
+                    // 缺少右半格的宽字符只画空格，避免半个字形挤占相邻单元格。
+                    builder.Append(
+                        cell.Codepoint == 0 || IsOrphanWideCell(line, column, cellCount)
+                            ? ' '
+                            : char.ConvertFromUtf32(cell.Codepoint));
                     cellSpan++;
                     column++;
                 }
@@ -1164,6 +1171,14 @@ public sealed class TerminalControl : Control
     private static bool IsWideCell(TerminalCell[] line, int index, int cellCount)
     {
         return index + 1 < cellCount && line[index + 1].Continuation;
+    }
+
+    private static bool IsOrphanWideCell(TerminalCell[] line, int index, int cellCount)
+    {
+        return !line[index].Continuation
+               && line[index].Codepoint != 0
+               && UnicodeWidth.GetWidth(line[index].Codepoint) == 2
+               && !IsWideCell(line, index, cellCount);
     }
 
     private static uint EffectiveBackground(in TerminalCell cell)

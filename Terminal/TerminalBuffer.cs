@@ -489,11 +489,16 @@ public sealed class TerminalBuffer
     public void EraseInLine(int mode)
     {
         var row = Screen[CursorY];
-        var start = mode == 1 ? 0 : CursorX;
-        var end = mode == 1 ? CursorX + 1 : Columns;
+        var (start, end) = mode switch
+        {
+            1 => (0, CursorX + 1),
+            2 => (0, Columns),
+            _ => (CursorX, Columns),
+        };
+
         for (var x = start; x < end; x++)
         {
-            row[x] = TerminalCell.Blank(PenBg);
+            EraseCellAt(row, x);
         }
 
         PendingWrap = false;
@@ -505,7 +510,7 @@ public sealed class TerminalBuffer
         var end = Math.Min(Columns, CursorX + Math.Max(0, count));
         for (var x = CursorX; x < end; x++)
         {
-            row[x] = TerminalCell.Blank(PenBg);
+            EraseCellAt(row, x);
         }
     }
 
@@ -528,6 +533,7 @@ public sealed class TerminalBuffer
             row[x] = TerminalCell.Blank(PenBg);
         }
 
+        RepairWideCells(row);
         PendingWrap = false;
     }
 
@@ -550,6 +556,7 @@ public sealed class TerminalBuffer
             row[x] = TerminalCell.Blank(PenBg);
         }
 
+        RepairWideCells(row);
         PendingWrap = false;
     }
 
@@ -748,6 +755,68 @@ public sealed class TerminalBuffer
         }
     }
 
+    /// <summary>
+    /// 擦除单元格：若该格属于宽字符，则连同另一半一起擦除，避免留下半个汉字。
+    /// </summary>
+    private void EraseCellAt(TerminalCell[] row, int index)
+    {
+        if (index < 0 || index >= Columns)
+        {
+            return;
+        }
+
+        var cell = row[index];
+        if (cell.Continuation)
+        {
+            if (index > 0 && IsWideStart(row[index - 1]))
+            {
+                row[index - 1] = TerminalCell.Blank(PenBg);
+            }
+
+            row[index] = TerminalCell.Blank(PenBg);
+            return;
+        }
+
+        if (IsWideStart(cell) && index + 1 < Columns && row[index + 1].Continuation)
+        {
+            row[index + 1] = TerminalCell.Blank(PenBg);
+        }
+
+        row[index] = TerminalCell.Blank(PenBg);
+    }
+
+    /// <summary>
+    /// 整体错位（插入/删除字符）后，清掉找不到另一半的宽字符，否则会渲染出半个字形。
+    /// </summary>
+    private void RepairWideCells(TerminalCell[] row)
+    {
+        for (var x = 0; x < row.Length; x++)
+        {
+            var cell = row[x];
+            if (cell.Continuation)
+            {
+                if (x == 0 || !IsWideStart(row[x - 1]))
+                {
+                    row[x] = TerminalCell.Blank(PenBg);
+                }
+
+                continue;
+            }
+
+            if (IsWideStart(cell) && (x + 1 >= row.Length || !row[x + 1].Continuation))
+            {
+                row[x] = TerminalCell.Blank(PenBg);
+            }
+        }
+    }
+
+    private static bool IsWideStart(in TerminalCell cell)
+    {
+        return !cell.Continuation
+               && cell.Codepoint != 0
+               && UnicodeWidth.GetWidth(cell.Codepoint) == 2;
+    }
+
     private void ClearWideAt(TerminalCell[] row, int index)
     {
         if (index < 0 || index >= Columns)
@@ -763,10 +832,7 @@ public sealed class TerminalBuffer
             return;
         }
 
-        if (cell.Codepoint != 0
-            && UnicodeWidth.GetWidth(cell.Codepoint) == 2
-            && index + 1 < Columns
-            && row[index + 1].Continuation)
+        if (IsWideStart(cell) && index + 1 < Columns && row[index + 1].Continuation)
         {
             row[index] = TerminalCell.Blank(PenBg);
             row[index + 1] = TerminalCell.Blank(PenBg);
@@ -816,8 +882,22 @@ public sealed class TerminalBuffer
         {
             var copyColumns = Math.Min(columns, source[y].Length);
             Array.Copy(source[y], target[y], copyColumns);
+            FixTruncatedWideCell(target[y], copyColumns);
         }
 
         return target;
+    }
+
+    private static void FixTruncatedWideCell(TerminalCell[] row, int length)
+    {
+        if (length <= 0 || length >= row.Length)
+        {
+            return;
+        }
+
+        if (IsWideStart(row[length - 1]))
+        {
+            row[length - 1] = TerminalCell.Blank(TermColor.Default);
+        }
     }
 }

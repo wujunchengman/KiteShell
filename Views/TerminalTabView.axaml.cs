@@ -140,6 +140,15 @@ public partial class TerminalTabView : UserControl
 
             _secrets = interaction.Secrets;
             UpdateState(TerminalConnectionState.Connected, "已连接");
+
+            // 连接期间窗口可能已重排，若行列数变化则补发，避免 pty 与实际网格不一致导致换行错位。
+            var latestColumns = (uint)Math.Max(2, Terminal.Buffer.Columns);
+            var latestRows = (uint)Math.Max(2, Terminal.Buffer.Rows);
+            if (latestColumns != columns || latestRows != rows)
+            {
+                session.Resize(latestColumns, latestRows);
+            }
+
             Terminal.Focus();
             _owner.NotifySessionConnected(_profile);
         }
